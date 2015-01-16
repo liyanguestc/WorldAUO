@@ -2,6 +2,17 @@
      windowHeight = window.innerHeight;
  var camera, renderer, scene;
 var meshArray = [];
+// add your global variables here:
+var helloWorldMesh;
+var world, worldClouds, t, c, l;
+var mesh1, mesh2, mesh3;
+//var sizeM = 14;
+var sizeM = 40;
+var sizeMesh1=sizeM, sizeMesh2=sizeM, sizeMesh3=sizeM;
+var depthCompress = 0.5;
+var z0 = -5;
+var radius = 25;
+var textradius = 1.1*radius;
 
  head.ready(function() {
      Init();
@@ -50,12 +61,14 @@ var meshArray = [];
      requestAnimationFrame(animate);
      
      //set mesh animation
+    var time = LEIA.time;
+    var dangle = 0.5;
      for (var i = 0; i < meshArray.length; i++) {
          var curMeshGroup = meshArray[i].meshGroup;
          switch (meshArray[i].name) {
-           case "helloworld":
-              curMeshGroup.rotation.x = 0.8 * Math.sin(5.0 * LEIA.time);
-              curMeshGroup.rotation.z = 0.6 * 0.6 * Math.sin(3.0 * LEIA.time);
+           case "AUO2":
+              curMeshGroup.position.set(textradius*Math.cos(time+dangle), 0, depthCompress*textradius*Math.sin(time+dangle)+z0);
+             curMeshGroup.rotation.y = -time-dangle+Math.PI/2;
              break;
               default:
                  break;
@@ -79,32 +92,47 @@ var meshArray = [];
  function addObjectsToScene() {
      //Add your objects here
       //add STL Object
-     /*addSTLModel({
-         path: 'resource/Cube.stl',
-         meshGroupName: 'Cube',
-         meshSizeX: 30,
-         meshSizeY: 30,
-         meshSizeZ: 30,
+     addSTLModel({
+         path: 'resource/AUO2.stl',
+         meshGroupName: 'AUO2',
+         meshSizeX: sizeMesh1,
+         meshSizeY: sizeMesh1,
+         meshSizeZ: 0.4*sizeMesh1,
          translateX: 0,
          translateY: 0,
          translateZ: 0,
-     });*/
+         color:0xff0000
+     });
    
-    //Add Text
-    addTextMenu({
-      text: "Hello",
-      name: "helloworld",
-      size: 15,
-      positionX: -20,
-      positionY: -5,
-      positionZ: 3,
-      rotateX: 0,
-      rotateY: 0,
-      rotateZ: 0
+
+    // world sphere
+    var worldTexture = new THREE.ImageUtils.loadTexture('resource/world_texture.jpg');
+    worldTexture.wrapS = worldTexture.wrapT = THREE.RepeatWrapping;
+    worldTexture.repeat.set(1, 1);
+    var worldMaterial = new THREE.MeshPhongMaterial({
+        map: worldTexture,
+        bumpMap   : THREE.ImageUtils.loadTexture('resource/world_elevation.jpg'),
+        bumpScale : 1.00,
+        specularMap: THREE.ImageUtils.loadTexture('resource/world_water.png'),
+        specular: new THREE.Color('grey'),
+        color: 0xffdd99
     });
-   
+    var worldGeometry = new THREE.SphereGeometry(radius, 30, 30);
+    world = new THREE.Mesh(worldGeometry, worldMaterial);
+    world.position.z = z0;
+    world.castShadow = true;
+    world.receiveShadow = true;
+    scene.add(world);
+  
+    world.matrixWorld.elements[10] = 0.1;
+    world.matrixWorldNeedsUpdate = true;
+ 
+    for (var q = 1; q<worldGeometry.vertices.length; q++) {
+        worldGeometry.vertices[q].z *= depthCompress;
+    }
+
    //add background texture
-   LEIA_setBackgroundPlane('resource/brickwall_900x600_small.jpg');
+   //LEIA_setBackgroundPlane('resource/brickwall_900x600_small.jpg');
  }
 
 function addTextMenu(parameters){
@@ -170,16 +198,20 @@ function addTextMenu(parameters){
 
  function addLights() {
      //Add Lights Here
-      var light = new THREE.SpotLight(0xffffff);
-    //light.color.setHSL( Math.random(), 1, 0.5 );
-    light.position.set(0, 60, 60);
-    light.shadowCameraVisible = false;
-    light.castShadow = true;
-    light.shadowMapWidth = light.shadowMapHeight = 256;
-    light.shadowDarkness = 0.7;
-    scene.add(light);
-
-    var ambientLight = new THREE.AmbientLight(0x222222);
+     var spotLight = new THREE.SpotLight(0xffffff);
+    //var spotLight = new THREE.DirectionalLight(0x999999);
+    //spotLight.position.set(0, 0, 70);
+    spotLight.position.set(70, 70, 70);
+    spotLight.shadowCameraVisible = false;
+    spotLight.castShadow = true;
+    spotLight.shadowMapWidth = spotLight.shadowMapHeight = 512;
+    spotLight.shadowDarkness = 0.7;
+    scene.add(spotLight);
+    //var ambientLight = new THREE.AmbientLight(0x222222);
+    //var ambientLight = new THREE.AmbientLight(0x444444);
+    var ambientLight = new THREE.AmbientLight(0x666666);
+    //var ambientLight = new THREE.AmbientLight(0x888888);
+    //var ambientLight = new THREE.AmbientLight(0xbbbbbb);
     scene.add(ambientLight);
  }
 
@@ -193,10 +225,14 @@ function addTextMenu(parameters){
      var ty = parameters.translateY;
      var tz = parameters.translateZ;
      var meshName = parameters.meshGroupName;
+     var color = parameters.color;
      if (parameters.meshSizeX === undefined || parameters.meshSizeY === undefined || parameters.meshSizeZ === undefined) {
          meshSizeX = 1;
          meshSizeY = 1;
          meshSizeZ = 1;
+     }
+     if(color === undefined){
+       color = 0xffffff;
      }
      var xhr1 = new XMLHttpRequest();
      xhr1.onreadystatechange = function() {
@@ -204,7 +240,7 @@ function addTextMenu(parameters){
              if (xhr1.status == 200 || xhr1.status === 0) {
                  var rep = xhr1.response;
                  var mesh1;
-                 mesh1 = parseStlBinary(rep, 0xffffff);
+                 mesh1 = parseStlBinary(rep, color);
                  mesh1.material.side = THREE.DoubleSide;
                  mesh1.castShadow = true;
                  mesh1.receiveShadow = true;
